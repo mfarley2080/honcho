@@ -20,7 +20,7 @@
 services:
 
   api:
-    image: ghcr.io/mfarley2080/honcho:latest
+    image: honcho:latest
     entrypoint: ["sh", "docker/entrypoint.sh"]
     restart: unless-stopped
     depends_on:
@@ -63,7 +63,7 @@ services:
       - honcho-internal
 
   deriver:
-    image: ghcr.io/mfarley2080/honcho:latest
+    image: honcho:latest
     entrypoint: ["/app/.venv/bin/python", "-m", "src.deriver"]
     restart: unless-stopped
     depends_on:

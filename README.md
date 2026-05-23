@@ -6,23 +6,31 @@ Upstream version: **v3.0.7**
 
 ## How it works
 
-GitHub Actions builds the upstream Honcho image and pushes it to `ghcr.io/mfarley2080/honcho`. Portainer pulls from there — same pattern as the other stacks.
+The image is built locally on the Docker host from the upstream repo, then referenced by name in the Portainer stack. No registry required.
 
-After the first Actions run you must make the GHCR package public:
-**GitHub → Packages → honcho → Package settings → Change visibility → Public**
+## First-time setup (run on TrueNAS as root)
 
-## Prerequisites
-
-- Traefik running with `traefik-frontend` network and `production` cert resolver
-- TrueNAS host directories created (one-time):
+**1. Build the image**
 
 ```bash
-mkdir -p /mnt/tank/docker/honcho/{postgres,redis}
-chown 999:999 /mnt/tank/docker/honcho/postgres
-chown 999:999 /mnt/tank/docker/honcho/redis
+bash build.sh
 ```
 
-Both `pgvector/pgvector:pg15` (postgres) and `redis:8.2` run as UID/GID **999:999**.
+Clones `plastic-labs/honcho` at the pinned tag and builds `honcho:latest` locally.
+
+**2. Create host directories and set ownership**
+
+```bash
+bash setup.sh
+```
+
+Creates `/mnt/tank/docker/honcho/{postgres,redis,logs}` with correct ownership:
+
+| Directory | Owner | Who |
+|---|---|---|
+| `postgres` | 999:999 | postgres runtime user |
+| `redis` | 999:999 | redis runtime user |
+| `logs` | 100:101 | honcho app runtime user |
 
 ## Portainer stack setup
 
@@ -34,22 +42,22 @@ Both `pgvector/pgvector:pg15` (postgres) and `redis:8.2` run as UID/GID **999:99
 | Variable | Description |
 |---|---|
 | `DB_PASSWORD` | Strong random password for postgres |
-| `LLM_OPENAI_API_KEY` | OpenAI API key (or use `LLM_ANTHROPIC_API_KEY` / `LLM_GEMINI_API_KEY`) |
-| `AUTH_JWT_SECRET` | JWT secret — generate with `python -c "import secrets; print(secrets.token_hex(32))"` |
-| `AUTH_USE_AUTH` | Set to `true` to require JWT auth on all API requests (recommended for production) |
+| `LLM_OPENAI_API_KEY` | OpenAI API key (or `LLM_ANTHROPIC_API_KEY` / `LLM_GEMINI_API_KEY`) |
+| `AUTH_JWT_SECRET` | JWT secret — `python3 -c "import secrets; print(secrets.token_hex(32))"` |
+| `AUTH_USE_AUTH` | `true` to require JWT auth on all API requests (recommended for production) |
 
 5. Deploy
 
 ## Updating upstream version
 
-Edit `UPSTREAM_TAG` in `.github/workflows/build.yml`, commit to main, and re-pull in Portainer.
+Edit the `TAG` variable in `build.sh`, re-run it on TrueNAS, then re-pull the stack in Portainer.
 
 ## Services
 
 | Service | Image | Role |
 |---|---|---|
-| api | ghcr.io/mfarley2080/honcho | FastAPI server on port 8000 |
-| deriver | ghcr.io/mfarley2080/honcho | Background memory worker |
+| api | honcho:latest | FastAPI server on port 8000 |
+| deriver | honcho:latest | Background memory worker |
 | database | pgvector/pgvector:pg15 | PostgreSQL + pgvector extension |
 | redis | redis:8.2 | Cache and job queue |
 
