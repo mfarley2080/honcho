@@ -42,9 +42,11 @@ Creates `/mnt/tank/docker/honcho/{postgres,redis,logs}` with correct ownership:
 | Variable | Description |
 |---|---|
 | `DB_PASSWORD` | Strong random password for postgres |
-| `LLM_OPENAI_API_KEY` | OpenAI API key (or `LLM_ANTHROPIC_API_KEY` / `LLM_GEMINI_API_KEY`) |
+| `LITELLM_API_KEY` | LiteLLM master key |
 | `AUTH_JWT_SECRET` | JWT secret — `python3 -c "import secrets; print(secrets.token_hex(32))"` |
 | `AUTH_USE_AUTH` | `true` to require JWT auth on all API requests (recommended for production) |
+
+Model and endpoint defaults live in `stack.env` (`LLM_MODEL`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`, `LITELLM_BASE_URL`) and can be overridden the same way.
 
 5. Deploy
 

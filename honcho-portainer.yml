@@ -5,17 +5,14 @@
 # Set stack.env path to "stack.env" in Portainer git stack settings.
 #
 # These must be set as environment overrides in Portainer (not in stack.env):
-#   DB_PASSWORD         postgres password
-#   LLM_OPENAI_API_KEY  OpenAI API key (or LLM_ANTHROPIC_API_KEY / LLM_GEMINI_API_KEY)
-#   AUTH_JWT_SECRET     JWT secret: python -c "import secrets; print(secrets.token_hex(32))"
-#   AUTH_USE_AUTH       true to require JWT auth on all API requests (recommended for production)
+#   DB_PASSWORD      postgres password
+#   LITELLM_API_KEY  LiteLLM master key
+#   AUTH_JWT_SECRET  JWT secret: python3 -c "import secrets; print(secrets.token_hex(32))"
+#   AUTH_USE_AUTH    true to require JWT auth on all API requests (recommended for production)
 #
 # Host directory setup (run once on TrueNAS before first deploy):
-#   mkdir -p /mnt/tank/docker/honcho/{postgres,redis}
-#   chown 999:999 /mnt/tank/docker/honcho/postgres
-#   chown 999:999 /mnt/tank/docker/honcho/redis
-#
-# postgres and redis both run as UID/GID 999 in their official images.
+#   bash build.sh    — builds honcho:latest locally from upstream
+#   bash setup.sh    — creates /mnt/tank/docker/honcho/{postgres,redis,logs} with correct ownership
 
 services:
 
@@ -42,12 +39,49 @@ services:
       - DB_CONNECTION_URI=postgresql+psycopg://postgres:${DB_PASSWORD}@database:5432/postgres
       - CACHE_URL=redis://redis:6379/0?suppress=true
       - CACHE_ENABLED=true
-      - LLM_OPENAI_API_KEY=${LLM_OPENAI_API_KEY}
       - AUTH_USE_AUTH=${AUTH_USE_AUTH}
       - AUTH_JWT_SECRET=${AUTH_JWT_SECRET}
       - LOG_LEVEL=${LOG_LEVEL}
       - LOCAL_METRICS_FILE=/app/logs/metrics.jsonl
       - REASONING_TRACES_FILE=/app/logs/traces.jsonl
+      # LiteLLM — all components use openai transport pointed at LiteLLM
+      - LLM_OPENAI_API_KEY=${LITELLM_API_KEY}
+      # Embeddings
+      - EMBEDDING_MODEL_CONFIG__TRANSPORT=openai
+      - EMBEDDING_MODEL_CONFIG__MODEL=${EMBEDDING_MODEL}
+      - EMBEDDING_MODEL_CONFIG__OVERRIDES__BASE_URL=${LITELLM_BASE_URL}
+      - EMBEDDING_VECTOR_DIMENSIONS=${EMBEDDING_DIMENSIONS}
+      # Deriver (background worker — has its own model config)
+      - DERIVER_MODEL_CONFIG__TRANSPORT=openai
+      - DERIVER_MODEL_CONFIG__MODEL=${LLM_MODEL}
+      - DERIVER_MODEL_CONFIG__OVERRIDES__BASE_URL=${LITELLM_BASE_URL}
+      # Dialectic (chat endpoint — 5 reasoning levels, all routed through LiteLLM)
+      - DIALECTIC_LEVELS__minimal__MODEL_CONFIG__TRANSPORT=openai
+      - DIALECTIC_LEVELS__minimal__MODEL_CONFIG__MODEL=${LLM_MODEL}
+      - DIALECTIC_LEVELS__minimal__MODEL_CONFIG__OVERRIDES__BASE_URL=${LITELLM_BASE_URL}
+      - DIALECTIC_LEVELS__low__MODEL_CONFIG__TRANSPORT=openai
+      - DIALECTIC_LEVELS__low__MODEL_CONFIG__MODEL=${LLM_MODEL}
+      - DIALECTIC_LEVELS__low__MODEL_CONFIG__OVERRIDES__BASE_URL=${LITELLM_BASE_URL}
+      - DIALECTIC_LEVELS__medium__MODEL_CONFIG__TRANSPORT=openai
+      - DIALECTIC_LEVELS__medium__MODEL_CONFIG__MODEL=${LLM_MODEL}
+      - DIALECTIC_LEVELS__medium__MODEL_CONFIG__OVERRIDES__BASE_URL=${LITELLM_BASE_URL}
+      - DIALECTIC_LEVELS__high__MODEL_CONFIG__TRANSPORT=openai
+      - DIALECTIC_LEVELS__high__MODEL_CONFIG__MODEL=${LLM_MODEL}
+      - DIALECTIC_LEVELS__high__MODEL_CONFIG__OVERRIDES__BASE_URL=${LITELLM_BASE_URL}
+      - DIALECTIC_LEVELS__max__MODEL_CONFIG__TRANSPORT=openai
+      - DIALECTIC_LEVELS__max__MODEL_CONFIG__MODEL=${LLM_MODEL}
+      - DIALECTIC_LEVELS__max__MODEL_CONFIG__OVERRIDES__BASE_URL=${LITELLM_BASE_URL}
+      # Summary
+      - SUMMARY_MODEL_CONFIG__TRANSPORT=openai
+      - SUMMARY_MODEL_CONFIG__MODEL=${LLM_MODEL}
+      - SUMMARY_MODEL_CONFIG__OVERRIDES__BASE_URL=${LITELLM_BASE_URL}
+      # Dream
+      - DREAM_DEDUCTION_MODEL_CONFIG__TRANSPORT=openai
+      - DREAM_DEDUCTION_MODEL_CONFIG__MODEL=${LLM_MODEL}
+      - DREAM_DEDUCTION_MODEL_CONFIG__OVERRIDES__BASE_URL=${LITELLM_BASE_URL}
+      - DREAM_INDUCTION_MODEL_CONFIG__TRANSPORT=openai
+      - DREAM_INDUCTION_MODEL_CONFIG__MODEL=${LLM_MODEL}
+      - DREAM_INDUCTION_MODEL_CONFIG__OVERRIDES__BASE_URL=${LITELLM_BASE_URL}
     volumes:
       - ${DATA_PATH}/logs:/app/logs
     labels:
@@ -77,10 +111,14 @@ services:
       - DB_CONNECTION_URI=postgresql+psycopg://postgres:${DB_PASSWORD}@database:5432/postgres
       - CACHE_URL=redis://redis:6379/0?suppress=true
       - CACHE_ENABLED=true
-      - LLM_OPENAI_API_KEY=${LLM_OPENAI_API_KEY}
       - LOG_LEVEL=${LOG_LEVEL}
       - LOCAL_METRICS_FILE=/app/logs/metrics.jsonl
       - REASONING_TRACES_FILE=/app/logs/traces.jsonl
+      # LiteLLM
+      - LLM_OPENAI_API_KEY=${LITELLM_API_KEY}
+      - DERIVER_MODEL_CONFIG__TRANSPORT=openai
+      - DERIVER_MODEL_CONFIG__MODEL=${LLM_MODEL}
+      - DERIVER_MODEL_CONFIG__OVERRIDES__BASE_URL=${LITELLM_BASE_URL}
     volumes:
       - ${DATA_PATH}/logs:/app/logs
     networks:
