@@ -1,0 +1,125 @@
+# Honcho - AI Memory Layer
+# https://github.com/plastic-labs/honcho
+#
+# Portainer stack — deploy from git repo mfarley2080/honcho
+# Set stack.env path to "stack.env" in Portainer git stack settings.
+#
+# These must be set as environment overrides in Portainer (not in stack.env):
+#   DB_PASSWORD         postgres password
+#   LLM_OPENAI_API_KEY  OpenAI API key (or LLM_ANTHROPIC_API_KEY / LLM_GEMINI_API_KEY)
+#   AUTH_JWT_SECRET     JWT secret: python -c "import secrets; print(secrets.token_hex(32))"
+#   AUTH_USE_AUTH       true to require JWT auth on all API requests (recommended for production)
+#
+# Host directory setup (run once on TrueNAS before first deploy):
+#   mkdir -p /mnt/tank/docker/honcho/{postgres,redis}
+#   chown 999:999 /mnt/tank/docker/honcho/postgres
+#   chown 999:999 /mnt/tank/docker/honcho/redis
+#
+# postgres and redis both run as UID/GID 999 in their official images.
+
+services:
+
+  api:
+    image: ghcr.io/mfarley2080/honcho:latest
+    entrypoint: ["sh", "docker/entrypoint.sh"]
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - "CMD"
+        - "/app/.venv/bin/python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2).read()"
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    environment:
+      - DB_CONNECTION_URI=postgresql+psycopg://postgres:${DB_PASSWORD}@database:5432/postgres
+      - CACHE_URL=redis://redis:6379/0?suppress=true
+      - CACHE_ENABLED=true
+      - LLM_OPENAI_API_KEY=${LLM_OPENAI_API_KEY}
+      - AUTH_USE_AUTH=${AUTH_USE_AUTH}
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOCAL_METRICS_FILE=/app/logs/metrics.jsonl
+      - REASONING_TRACES_FILE=/app/logs/traces.jsonl
+    volumes:
+      - ${DATA_PATH}/logs:/app/logs
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.honcho.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.honcho.entrypoints=websecure"
+      - "traefik.http.routers.honcho.tls=true"
+      - "traefik.http.routers.honcho.tls.certresolver=production"
+      - "traefik.http.services.honcho.loadbalancer.server.port=8000"
+      - "traefik.docker.network=traefik-frontend"
+    networks:
+      - traefik-frontend
+      - honcho-internal
+
+  deriver:
+    image: ghcr.io/mfarley2080/honcho:latest
+    entrypoint: ["/app/.venv/bin/python", "-m", "src.deriver"]
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DB_CONNECTION_URI=postgresql+psycopg://postgres:${DB_PASSWORD}@database:5432/postgres
+      - CACHE_URL=redis://redis:6379/0?suppress=true
+      - CACHE_ENABLED=true
+      - LLM_OPENAI_API_KEY=${LLM_OPENAI_API_KEY}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOCAL_METRICS_FILE=/app/logs/metrics.jsonl
+      - REASONING_TRACES_FILE=/app/logs/traces.jsonl
+    volumes:
+      - ${DATA_PATH}/logs:/app/logs
+    networks:
+      - honcho-internal
+
+  database:
+    image: pgvector/pgvector:pg15
+    restart: unless-stopped
+    command: ["postgres", "-c", "max_connections=200"]
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ${DATA_PATH}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - honcho-internal
+
+  redis:
+    image: redis:8.2
+    restart: unless-stopped
+    volumes:
+      - ${DATA_PATH}/redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - honcho-internal
+
+networks:
+  traefik-frontend:
+    external: true
+  honcho-internal:
