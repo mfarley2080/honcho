@@ -42,11 +42,12 @@ Creates `/mnt/tank/docker/honcho/{postgres,redis,logs}` with correct ownership:
 | Variable | Description |
 |---|---|
 | `DB_PASSWORD` | Strong random password for postgres |
-| `LITELLM_API_KEY` | LiteLLM master key |
+| `LLM_API_KEY` | LiteLLM key for LLM calls (deriver, dialectic, summary, dream) |
+| `EMBEDDING_API_KEY` | LiteLLM key for embedding calls — can be the same as `LLM_API_KEY` or different |
 | `AUTH_JWT_SECRET` | JWT secret — `python3 -c "import secrets; print(secrets.token_hex(32))"` |
 | `AUTH_USE_AUTH` | `true` to require JWT auth on all API requests (recommended for production) |
 
-Model and endpoint defaults live in `stack.env` (`LLM_MODEL`, `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS`, `LITELLM_BASE_URL`) and can be overridden the same way.
+Model and endpoint defaults live in `stack.env` and can be overridden the same way. LLM and embedding endpoints are independent — `LLM_BASE_URL` / `LLM_MODEL` control all reasoning components; `EMBEDDING_BASE_URL` / `EMBEDDING_MODEL` / `EMBEDDING_DIMENSIONS` control the embedding pipeline.
 
 5. Deploy
 
