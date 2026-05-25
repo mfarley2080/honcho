@@ -82,6 +82,12 @@ docker exec -it honcho-api-1 uv run python scripts/configure_embeddings.py --yes
 
 This script refuses to run if any non-null embeddings exist — re-embedding out-of-band into a fresh deployment is required in that case.
 
+### Deriver not processing messages (queue stays pending)
+
+The deriver batches work by default and only processes a session once it has accumulated ≥ 1024 tokens of messages. Short test conversations will sit pending indefinitely.
+
+To bypass the threshold and process immediately, set `DERIVER_FLUSH_ENABLED=true` as a Portainer override (or uncomment it in `stack.env`) and redeploy. Remove it again for production — batch mode is more efficient at scale.
+
 ## Updating upstream version
 
 Edit the `TAG` variable in `build.sh`, re-run it on TrueNAS, then re-pull the stack in Portainer.
