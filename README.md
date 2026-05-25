@@ -10,9 +10,12 @@ The image is built locally on the Docker host from the upstream repo, then refer
 
 ## First-time setup (run on TrueNAS as root)
 
+Copy the repo files to `/mnt/tank/docker/honcho` on TrueNAS (via SCP or SMB share), then:
+
 **1. Build the image**
 
 ```bash
+cd /mnt/tank/docker/honcho
 bash build.sh
 ```
 
@@ -35,9 +38,10 @@ Creates `/mnt/tank/docker/honcho/{postgres,redis,logs}` with correct ownership:
 ## Portainer stack setup
 
 1. Add stack → Git repository → `https://github.com/mfarley2080/honcho`
-2. Compose file: `honcho-portainer.yml`
-3. Environment file: `stack.env`
-4. Add these environment overrides in Portainer (do not commit to git):
+2. Authentication: GitHub personal access token (repo is private)
+3. Compose file: `honcho-portainer.yml`
+4. Environment file: `stack.env`
+5. Add these environment overrides in Portainer (do not commit to git):
 
 | Variable | Description |
 |---|---|
@@ -49,7 +53,7 @@ Creates `/mnt/tank/docker/honcho/{postgres,redis,logs}` with correct ownership:
 
 Model and endpoint defaults live in `stack.env` and can be overridden the same way. LLM and embedding endpoints are independent — `LLM_BASE_URL` / `LLM_MODEL` control all reasoning components; `EMBEDDING_BASE_URL` / `EMBEDDING_MODEL` / `EMBEDDING_DIMENSIONS` control the embedding pipeline.
 
-5. Deploy
+6. Deploy
 
 ## Updating upstream version
 
