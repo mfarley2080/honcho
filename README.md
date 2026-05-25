@@ -55,6 +55,33 @@ Model and endpoint defaults live in `stack.env` and can be overridden the same w
 
 6. Deploy
 
+## Troubleshooting
+
+### StartupValidationError: embedding dim mismatch
+
+Alembic migrations hardcode `vector(1536)` regardless of `EMBEDDING_VECTOR_DIMENSIONS`. If you deploy with a non-default dimension (e.g. 1024 for mxbai-embed-large), the API will refuse to start until the schema is updated.
+
+**Fix (fresh deploy — no real data):**
+
+```bash
+docker exec -it honcho-database-1 psql -U postgres postgres -c "
+  DROP INDEX IF EXISTS ix_message_embeddings_embedding;
+  ALTER TABLE message_embeddings ALTER COLUMN embedding TYPE vector(1024) USING NULL;
+  DROP INDEX IF EXISTS ix_documents_embedding;
+  ALTER TABLE documents ALTER COLUMN embedding TYPE vector(1024) USING NULL;
+"
+```
+
+Replace `1024` with your `EMBEDDING_DIMENSIONS` value. Then restart the api service in Portainer.
+
+**Fix (existing data):** Use the upstream migration script, which handles both tables and their HNSW indexes atomically. The API must be reachable to exec into:
+
+```bash
+docker exec -it honcho-api-1 uv run python scripts/configure_embeddings.py --yes
+```
+
+This script refuses to run if any non-null embeddings exist — re-embedding out-of-band into a fresh deployment is required in that case.
+
 ## Updating upstream version
 
 Edit the `TAG` variable in `build.sh`, re-run it on TrueNAS, then re-pull the stack in Portainer.
