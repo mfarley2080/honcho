@@ -86,7 +86,17 @@ This script refuses to run if any non-null embeddings exist — re-embedding out
 
 The deriver batches work by default and only processes a session once it has accumulated ≥ 1024 tokens of messages. Short test conversations will sit pending indefinitely.
 
-To bypass the threshold and process immediately, set `DERIVER_FLUSH_ENABLED=true` as a Portainer override (or uncomment it in `stack.env`) and redeploy. Remove it again for production — batch mode is more efficient at scale.
+To bypass the threshold and process immediately, set `DERIVER_FLUSH_ENABLED=true` in `stack.env` and redeploy. This is appropriate for low-traffic deployments where loss of short sessions is a concern. For high-volume deployments, batch mode is more efficient — lower `DERIVER_REPRESENTATION_BATCH_MAX_TOKENS` (min 128) instead of disabling batching entirely.
+
+## Security patches applied at build time
+
+`build.sh` applies the following patches after cloning, before the Docker build:
+
+| CVE | Package | Issue | Fix |
+|---|---|---|---|
+| CVE-2026-48710 | starlette | BadHost: Host-header path injection, auth bypass in path middleware | Upgraded to ≥1.0.1 |
+
+Remove a row once upstream ships a tag with the fix included.
 
 ## Updating upstream version
 

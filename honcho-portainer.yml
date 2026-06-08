@@ -32,10 +32,10 @@ services:
         - "/app/.venv/bin/python"
         - "-c"
         - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2).read()"
-      interval: 5s
+      interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 15s
+      retries: 12
+      start_period: 30s
     environment:
       - DB_CONNECTION_URI=postgresql+psycopg://postgres:${DB_PASSWORD}@database:5432/postgres
       - CACHE_URL=redis://redis:6379/0?suppress=true
