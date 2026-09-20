@@ -1,0 +1,28 @@
+sudo docker exec -i honcho-deriver-1 /app/.venv/bin/python - <<'PY'
+import json
+import os
+import time
+import urllib.request
+
+body = json.dumps({
+    "model": "mxbai-embed-large",
+    "input": ["health check"],
+}).encode()
+
+req = urllib.request.Request(
+    "https://litellm.lre-group.org/v1/embeddings",
+    data=body,
+    headers={
+        "Authorization": "Bearer " + os.environ["LLM_OPENAI_API_KEY"],
+        "Content-Type": "application/json",
+    },
+)
+
+started = time.time()
+try:
+    with urllib.request.urlopen(req, timeout=30) as response:
+        print("HTTP", response.status, "TOTAL", round(time.time() - started, 2), "s")
+        print(response.read(300).decode(errors="replace"))
+except Exception as exc:
+    print(type(exc).__name__, str(exc), "TOTAL", round(time.time() - started, 2), "s")
+PY

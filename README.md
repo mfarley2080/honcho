@@ -2,7 +2,7 @@
 
 Portainer stack configuration for [Honcho](https://github.com/plastic-labs/honcho) — AI memory layer for stateful agents.
 
-Upstream version: **v3.0.7**
+Upstream version: **v3.2.0**
 
 ## How it works
 
@@ -40,8 +40,7 @@ Creates `/mnt/tank/docker/honcho/{postgres,redis,logs}` with correct ownership:
 1. Add stack → Git repository → `https://github.com/mfarley2080/honcho`
 2. Authentication: GitHub personal access token (repo is private)
 3. Compose file: `honcho-portainer.yml`
-4. Environment file: `stack.env`
-5. Add these environment overrides in Portainer (do not commit to git):
+4. Add these environment overrides in Portainer (do not commit to git):
 
 | Variable | Description |
 |---|---|
@@ -51,7 +50,7 @@ Creates `/mnt/tank/docker/honcho/{postgres,redis,logs}` with correct ownership:
 | `AUTH_JWT_SECRET` | JWT secret — `python3 -c "import secrets; print(secrets.token_hex(32))"` |
 | `AUTH_USE_AUTH` | `true` to require JWT auth on all API requests (recommended for production) |
 
-Model and endpoint defaults live in `stack.env` and can be overridden the same way. LLM and embedding endpoints are independent — `LLM_BASE_URL` / `LLM_MODEL` control all reasoning components; `EMBEDDING_BASE_URL` / `EMBEDDING_MODEL` / `EMBEDDING_DIMENSIONS` control the embedding pipeline.
+The compose file contains the non-secret defaults because this Portainer stack does not consume `stack.env`. Override them in Portainer when needed. LLM and embedding endpoints are independent — `LLM_BASE_URL` / `LLM_MODEL` control all reasoning components; `EMBEDDING_BASE_URL` / `EMBEDDING_MODEL` / `EMBEDDING_DIMENSIONS` control the embedding pipeline.
 
 6. Deploy
 
@@ -86,7 +85,7 @@ This script refuses to run if any non-null embeddings exist — re-embedding out
 
 The deriver batches work by default and only processes a session once it has accumulated ≥ 1024 tokens of messages. Short test conversations will sit pending indefinitely.
 
-To bypass the threshold and process immediately, set `DERIVER_FLUSH_ENABLED=true` in `stack.env` and redeploy. This is appropriate for low-traffic deployments where loss of short sessions is a concern. For high-volume deployments, batch mode is more efficient — lower `DERIVER_REPRESENTATION_BATCH_MAX_TOKENS` (min 128) instead of disabling batching entirely.
+To bypass the threshold and process immediately, set `DERIVER_FLUSH_ENABLED=true` as a Portainer environment override and redeploy. This is appropriate for low-traffic deployments where loss of short sessions is a concern.
 
 ## Security patches applied at build time
 
@@ -101,6 +100,12 @@ Remove a row once upstream ships a tag with the fix included.
 ## Updating upstream version
 
 Edit the `TAG` variable in `build.sh`, re-run it on TrueNAS, then re-pull the stack in Portainer.
+
+The v3.2.0 upgrade includes the upstream database-pool fixes: lazy connection
+checkout, read-only sessions for query paths, bounded connection attempts, and
+background message embedding. The old `DERIVER_REPRESENTATION_BATCH_MAX_TOKENS`
+setting was split upstream; this stack does not set that variable, so no
+migration is required here.
 
 ## Services
 
