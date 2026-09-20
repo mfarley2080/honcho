@@ -1,10 +1,11 @@
+# ## FARLEY: 2026-09-20 - Upgrade to Honcho v3.2.0; add DB fail-fast and embedding settings
 # Honcho - AI Memory Layer
 # https://github.com/plastic-labs/honcho
 #
 # Portainer stack — deploy from git repo mfarley2080/honcho
-# Set stack.env path to "stack.env" in Portainer git stack settings.
+# Non-secret defaults are embedded below; Portainer overrides are optional.
 #
-# These must be set as environment overrides in Portainer (not in stack.env):
+# These must be set as environment overrides in Portainer:
 #   DB_PASSWORD       postgres password
 #   LLM_API_KEY       LiteLLM key for LLM calls (deriver, dialectic, summary, dream)
 #   EMBEDDING_API_KEY LiteLLM key for embedding calls (can differ from LLM_API_KEY)
@@ -38,58 +39,64 @@ services:
       start_period: 30s
     environment:
       - DB_CONNECTION_URI=postgresql+psycopg://postgres:${DB_PASSWORD}@database:5432/postgres
+      # Fail fast when the pool or database is saturated; v3.2 also lazily
+      # checks out connections so external LLM work does not hold DB slots.
+      - DB_POOL_TIMEOUT=5
+      - DB_CONNECT_TIMEOUT_SECONDS=2
       - CACHE_URL=redis://redis:6379/0?suppress=true
       - CACHE_ENABLED=true
-      - AUTH_USE_AUTH=${AUTH_USE_AUTH}
+      - AUTH_USE_AUTH=${AUTH_USE_AUTH:-true}
       - AUTH_JWT_SECRET=${AUTH_JWT_SECRET}
-      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - LOCAL_METRICS_FILE=/app/logs/metrics.jsonl
       - REASONING_TRACES_FILE=/app/logs/traces.jsonl
       # LLM key — used as the default OpenAI transport key for all LLM components
       - LLM_OPENAI_API_KEY=${LLM_API_KEY}
+      - LLM_OPENAI_BASE_URL=${LLM_BASE_URL:-https://litellm.lre-group.org/v1}
       # Embeddings — separate endpoint and key from LLM
       - EMBEDDING_MODEL_CONFIG__TRANSPORT=openai
-      - EMBEDDING_MODEL_CONFIG__MODEL=${EMBEDDING_MODEL}
-      - EMBEDDING_MODEL_CONFIG__OVERRIDES__BASE_URL=${EMBEDDING_BASE_URL}
+      - EMBEDDING_MODEL_CONFIG__MODEL=${EMBEDDING_MODEL:-mxbai-embed-large}
+      - EMBEDDING_MODEL_CONFIG__OVERRIDES__BASE_URL=${EMBEDDING_BASE_URL:-https://litellm.lre-group.org/v1}
       - EMBEDDING_MODEL_CONFIG__OVERRIDES__API_KEY=${EMBEDDING_API_KEY}
-      - EMBEDDING_VECTOR_DIMENSIONS=${EMBEDDING_DIMENSIONS}
+      - EMBEDDING_VECTOR_DIMENSIONS=${EMBEDDING_DIMENSIONS:-1024}
       - EMBEDDING_MAX_INPUT_TOKENS=${EMBEDDING_MAX_INPUT_TOKENS:-384}
       # Deriver
       - DERIVER_MODEL_CONFIG__TRANSPORT=openai
-      - DERIVER_MODEL_CONFIG__MODEL=${LLM_MODEL}
-      - DERIVER_MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL}
+      - DERIVER_MODEL_CONFIG__MODEL=${LLM_MODEL:-default}
+      - DERIVER_MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL:-https://litellm.lre-group.org/v1}
+      - DERIVER_FLUSH_ENABLED=${DERIVER_FLUSH_ENABLED:-true}
       # Dialectic (5 reasoning levels)
       - DIALECTIC_LEVELS__minimal__MODEL_CONFIG__TRANSPORT=openai
-      - DIALECTIC_LEVELS__minimal__MODEL_CONFIG__MODEL=${LLM_MODEL}
-      - DIALECTIC_LEVELS__minimal__MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL}
+      - DIALECTIC_LEVELS__minimal__MODEL_CONFIG__MODEL=${LLM_MODEL:-default}
+      - DIALECTIC_LEVELS__minimal__MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL:-https://litellm.lre-group.org/v1}
       - DIALECTIC_LEVELS__low__MODEL_CONFIG__TRANSPORT=openai
-      - DIALECTIC_LEVELS__low__MODEL_CONFIG__MODEL=${LLM_MODEL}
-      - DIALECTIC_LEVELS__low__MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL}
+      - DIALECTIC_LEVELS__low__MODEL_CONFIG__MODEL=${LLM_MODEL:-default}
+      - DIALECTIC_LEVELS__low__MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL:-https://litellm.lre-group.org/v1}
       - DIALECTIC_LEVELS__medium__MODEL_CONFIG__TRANSPORT=openai
-      - DIALECTIC_LEVELS__medium__MODEL_CONFIG__MODEL=${LLM_MODEL}
-      - DIALECTIC_LEVELS__medium__MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL}
+      - DIALECTIC_LEVELS__medium__MODEL_CONFIG__MODEL=${LLM_MODEL:-default}
+      - DIALECTIC_LEVELS__medium__MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL:-https://litellm.lre-group.org/v1}
       - DIALECTIC_LEVELS__high__MODEL_CONFIG__TRANSPORT=openai
-      - DIALECTIC_LEVELS__high__MODEL_CONFIG__MODEL=${LLM_MODEL}
-      - DIALECTIC_LEVELS__high__MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL}
+      - DIALECTIC_LEVELS__high__MODEL_CONFIG__MODEL=${LLM_MODEL:-default}
+      - DIALECTIC_LEVELS__high__MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL:-https://litellm.lre-group.org/v1}
       - DIALECTIC_LEVELS__max__MODEL_CONFIG__TRANSPORT=openai
-      - DIALECTIC_LEVELS__max__MODEL_CONFIG__MODEL=${LLM_MODEL}
-      - DIALECTIC_LEVELS__max__MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL}
+      - DIALECTIC_LEVELS__max__MODEL_CONFIG__MODEL=${LLM_MODEL:-default}
+      - DIALECTIC_LEVELS__max__MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL:-https://litellm.lre-group.org/v1}
       # Summary
       - SUMMARY_MODEL_CONFIG__TRANSPORT=openai
-      - SUMMARY_MODEL_CONFIG__MODEL=${LLM_MODEL}
-      - SUMMARY_MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL}
+      - SUMMARY_MODEL_CONFIG__MODEL=${LLM_MODEL:-default}
+      - SUMMARY_MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL:-https://litellm.lre-group.org/v1}
       # Dream
       - DREAM_DEDUCTION_MODEL_CONFIG__TRANSPORT=openai
-      - DREAM_DEDUCTION_MODEL_CONFIG__MODEL=${LLM_MODEL}
-      - DREAM_DEDUCTION_MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL}
+      - DREAM_DEDUCTION_MODEL_CONFIG__MODEL=${LLM_MODEL:-default}
+      - DREAM_DEDUCTION_MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL:-https://litellm.lre-group.org/v1}
       - DREAM_INDUCTION_MODEL_CONFIG__TRANSPORT=openai
-      - DREAM_INDUCTION_MODEL_CONFIG__MODEL=${LLM_MODEL}
-      - DREAM_INDUCTION_MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL}
+      - DREAM_INDUCTION_MODEL_CONFIG__MODEL=${LLM_MODEL:-default}
+      - DREAM_INDUCTION_MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL:-https://litellm.lre-group.org/v1}
     volumes:
-      - ${DATA_PATH}/logs:/app/logs
+      - ${DATA_PATH:-/mnt/tank/docker/honcho}/logs:/app/logs
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.honcho.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.honcho.rule=Host(`${DOMAIN:-honcho.lre-group.org}`)"
       - "traefik.http.routers.honcho.entrypoints=websecure"
       - "traefik.http.routers.honcho.tls=true"
       - "traefik.http.routers.honcho.tls.certresolver=production"
@@ -112,25 +119,29 @@ services:
         condition: service_healthy
     environment:
       - DB_CONNECTION_URI=postgresql+psycopg://postgres:${DB_PASSWORD}@database:5432/postgres
+      - DB_POOL_TIMEOUT=5
+      - DB_CONNECT_TIMEOUT_SECONDS=2
       - CACHE_URL=redis://redis:6379/0?suppress=true
       - CACHE_ENABLED=true
-      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - LOCAL_METRICS_FILE=/app/logs/metrics.jsonl
       - REASONING_TRACES_FILE=/app/logs/traces.jsonl
       # LLM
       - LLM_OPENAI_API_KEY=${LLM_API_KEY}
+      - LLM_OPENAI_BASE_URL=${LLM_BASE_URL:-https://litellm.lre-group.org/v1}
       - DERIVER_MODEL_CONFIG__TRANSPORT=openai
-      - DERIVER_MODEL_CONFIG__MODEL=${LLM_MODEL}
-      - DERIVER_MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL}
+      - DERIVER_MODEL_CONFIG__MODEL=${LLM_MODEL:-default}
+      - DERIVER_MODEL_CONFIG__OVERRIDES__BASE_URL=${LLM_BASE_URL:-https://litellm.lre-group.org/v1}
+      - DERIVER_FLUSH_ENABLED=${DERIVER_FLUSH_ENABLED:-true}
       # Embeddings — separate endpoint and key
       - EMBEDDING_MODEL_CONFIG__TRANSPORT=openai
-      - EMBEDDING_MODEL_CONFIG__MODEL=${EMBEDDING_MODEL}
-      - EMBEDDING_MODEL_CONFIG__OVERRIDES__BASE_URL=${EMBEDDING_BASE_URL}
+      - EMBEDDING_MODEL_CONFIG__MODEL=${EMBEDDING_MODEL:-mxbai-embed-large}
+      - EMBEDDING_MODEL_CONFIG__OVERRIDES__BASE_URL=${EMBEDDING_BASE_URL:-https://litellm.lre-group.org/v1}
       - EMBEDDING_MODEL_CONFIG__OVERRIDES__API_KEY=${EMBEDDING_API_KEY}
-      - EMBEDDING_VECTOR_DIMENSIONS=${EMBEDDING_DIMENSIONS}
+      - EMBEDDING_VECTOR_DIMENSIONS=${EMBEDDING_DIMENSIONS:-1024}
       - EMBEDDING_MAX_INPUT_TOKENS=${EMBEDDING_MAX_INPUT_TOKENS:-384}
     volumes:
-      - ${DATA_PATH}/logs:/app/logs
+      - ${DATA_PATH:-/mnt/tank/docker/honcho}/logs:/app/logs
     networks:
       - honcho-internal
 
@@ -145,7 +156,7 @@ services:
       - PGDATA=/var/lib/postgresql/data/pgdata
     volumes:
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - ${DATA_PATH}/postgres:/var/lib/postgresql/data
+      - ${DATA_PATH:-/mnt/tank/docker/honcho}/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
       interval: 5s
@@ -158,7 +169,7 @@ services:
     image: redis:8.2
     restart: unless-stopped
     volumes:
-      - ${DATA_PATH}/redis:/data
+      - ${DATA_PATH:-/mnt/tank/docker/honcho}/redis:/data
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping"]
       interval: 5s
