@@ -1,0 +1,51 @@
+# Read-only pre-cleanup inventory for the HA session.
+
+sudo docker exec honcho-database-1 psql -U postgres -d postgres -c "
+SELECT 'sessions' AS item, count(*)
+FROM sessions
+WHERE workspace_name='q-hermes'
+  AND name='agent-main-homeassistant-channel-ha_events-homeassistant'
+UNION ALL
+SELECT 'messages', count(*)
+FROM messages
+WHERE workspace_name='q-hermes'
+  AND session_name='agent-main-homeassistant-channel-ha_events-homeassistant'
+UNION ALL
+SELECT 'conclusions_live', count(*)
+FROM documents
+WHERE workspace_name='q-hermes'
+  AND session_name='agent-main-homeassistant-channel-ha_events-homeassistant'
+  AND deleted_at IS NULL
+UNION ALL
+SELECT 'conclusions_deleted', count(*)
+FROM documents
+WHERE workspace_name='q-hermes'
+  AND session_name='agent-main-homeassistant-channel-ha_events-homeassistant'
+  AND deleted_at IS NOT NULL
+UNION ALL
+SELECT 'message_embeddings', count(*)
+FROM message_embeddings
+WHERE workspace_name='q-hermes'
+  AND session_name='agent-main-homeassistant-channel-ha_events-homeassistant'
+UNION ALL
+SELECT 'session_peers', count(*)
+FROM session_peers
+WHERE workspace_name='q-hermes'
+  AND session_name='agent-main-homeassistant-channel-ha_events-homeassistant'
+UNION ALL
+SELECT 'active_queue_claims', count(*)
+FROM active_queue_sessions
+WHERE work_unit_key LIKE '%agent-main-homeassistant-channel-ha_events-homeassistant%';
+"
+
+sudo docker exec honcho-database-1 psql -U postgres -d postgres -c "
+SELECT task_type,
+       processed,
+       count(*) AS count,
+       count(*) FILTER (WHERE error IS NOT NULL) AS errors
+FROM queue
+WHERE workspace_name='q-hermes'
+  AND work_unit_key LIKE '%agent-main-homeassistant-channel-ha_events-homeassistant%'
+GROUP BY task_type, processed
+ORDER BY task_type, processed;
+"
