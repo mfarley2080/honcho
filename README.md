@@ -2,7 +2,7 @@
 
 Portainer stack configuration for [Honcho](https://github.com/plastic-labs/honcho) — AI memory layer for stateful agents.
 
-Upstream version: **v3.2.0**
+Upstream version: **v3.6.2**
 
 ## How it works
 
@@ -60,7 +60,7 @@ The compose file contains the non-secret defaults because this Portainer stack d
 
 Alembic migrations hardcode `vector(1536)` regardless of `EMBEDDING_VECTOR_DIMENSIONS`. If you deploy with a non-default dimension (e.g. 1024 for mxbai-embed-large), the API will refuse to start until the schema is updated.
 
-**Fix (fresh deploy — no real data):**
+**Fix (fresh deploy — no real data).** Index names changed in v3.6 (e.g. `ix_message_embeddings_embedding_hnsw`), so the manual SQL below may not drop the current HNSW index; prefer `configure_embeddings.py` (next fix) when on v3.6+:
 
 ```bash
 docker exec -it honcho-database-1 psql -U postgres postgres -c "
@@ -87,25 +87,46 @@ The deriver batches work by default and only processes a session once it has acc
 
 To bypass the threshold and process immediately, set `DERIVER_FLUSH_ENABLED=true` as a Portainer environment override and redeploy. This is appropriate for low-traffic deployments where loss of short sessions is a concern.
 
-## Security patches applied at build time
+## Security patches
 
-`build.sh` applies the following patches after cloning, before the Docker build:
-
-| CVE | Package | Issue | Fix |
-|---|---|---|---|
-| CVE-2026-48710 | starlette | BadHost: Host-header path injection, auth bypass in path middleware | Upgraded to ≥1.0.1 |
-
-Remove a row once upstream ships a tag with the fix included.
+No build-time patches are applied. CVE-2026-48710 (starlette BadHost) was patched
+by upstream in v3.3.0 (starlette 1.6.0), so the former `build.sh` patch was removed.
 
 ## Updating upstream version
 
 Edit the `TAG` variable in `build.sh`, re-run it on TrueNAS, then re-pull the stack in Portainer.
 
-The v3.2.0 upgrade includes the upstream database-pool fixes: lazy connection
-checkout, read-only sessions for query paths, bounded connection attempts, and
-background message embedding. The old `DERIVER_REPRESENTATION_BATCH_MAX_TOKENS`
-setting was split upstream; this stack does not set that variable, so no
-migration is required here.
+### Upgrade notes
+
+**v3.2.0 -> v3.6.2 (2026-11-21).** Reviewed against the upstream 3.2.1-3.6.2 release
+notes; no compose/env changes were required (all `LLM_OPENAI_*`, `*_MODEL_CONFIG__*`,
+`EMBEDDING_*`, `DERIVER_FLUSH_ENABLED`, `LOCAL_METRICS_FILE`, `REASONING_TRACES_FILE`
+names are unchanged, and `docker/entrypoint.sh` still runs migrations on api start).
+
+Before upgrading:
+
+1. **Back up Postgres** (ZFS snapshot of `/mnt/tank/docker/honcho/postgres` or `pg_dump`).
+   Upstream says releases from 3.2.2 on run against the new schema, so 3.2.2+ is a
+   rollback target, but 3.2.0/3.2.1 are not.
+2. **Expect a slow first start.** 14 migrations run, mainly `e5fe7f8bcf62` (adds
+   `tenant_id` and rebuilds primary/foreign keys). 3.6.1+ builds these without holding
+   long read/write locks, but each statement is bounded by a 5-minute `statement_timeout`.
+   Watch `docker logs honcho-api-1`; the deriver waits for the api healthcheck.
+3. Rebuild with `bash build.sh`, then re-pull/redeploy the stack so api and deriver
+   both move to the new image together.
+
+Behavior changes worth knowing:
+
+- Embeddings now auto-select `encoding_format=float` for non-OpenAI hosts, so the
+  LiteLLM `drop_params` workaround should no longer be needed (leave it; harmless).
+- Existing `vector(1024)` columns are untouched; the startup validator still checks
+  `EMBEDDING_DIMENSIONS` against the schema.
+- Peer chat answers as a single turn; streamed chat usually arrives as one chunk.
+- Startup refuses to boot if `queue_item_batches` (new in 3.6.0) or its triggers are
+  missing, which means a failed/partial migration shows up as an api crash loop.
+- Langfuse: self-hosted must be >= v4.59.0 (not used here).
+- Removed settings (`DIALECTIC_HISTORY_TOKEN_LIMIT`, `DREAM_HISTORY_TOKEN_LIMIT`,
+  `LANGFUSE_EXPORTER_MODE`) are ignored if left set; none are used here.
 
 ## Services
 
