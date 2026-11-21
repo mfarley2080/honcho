@@ -1,4 +1,4 @@
-# ## FARLEY: 2026-09-20 - Upgrade to Honcho v3.2.0; add DB fail-fast and embedding settings
+# ## FARLEY: 2026-11-21 - Upgrade to Honcho v3.6.2; extend api healthcheck start_period for migrations
 # Honcho - AI Memory Layer
 # https://github.com/plastic-labs/honcho
 #
