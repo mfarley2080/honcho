@@ -36,7 +36,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 30s
+      start_period: 300s  # first start after an upgrade runs DB migrations
     environment:
       - DB_CONNECTION_URI=postgresql+psycopg://postgres:${DB_PASSWORD}@database:5432/postgres
       # Fail fast when the pool or database is saturated; v3.2 also lazily
